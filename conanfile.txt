@@ -1,0 +1,13 @@
+[requires]
+brpc/1.11.0.b@user/stable
+jemalloc/5.2.1
+benchmark/1.7.1
+#openssl/1.1.1s
+gperftools/2.15@user/stable
+zlib/1.2.13
+snappy/1.1.10
+
+[generators]
+cmake
+
+[options]
