@@ -11,7 +11,7 @@
 #include "hash_skip/node.h"
 #include "hash_skip/ptr_util.h"
 
-namespace cache::hash_skip {
+namespace hyper_cache::hash_skip {
 
 class AtomicSkipList {
 public:
@@ -224,4 +224,4 @@ private:
   AcqRelAtomic<int64_t> marked_deleted_num_{0};
 };
 
-} // namespace cache::hash_skip
+} // namespace hyper_cache::hash_skip

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(cache VERSION 1.0.0 LANGUAGES CXX)
+project(hyper_cache VERSION 1.0.0 LANGUAGES CXX)
 
 #include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 #conan_basic_setup(TARGETS)
@@ -25,18 +25,17 @@ if(ENABLE_TSAN)
     add_link_options(-fsanitize=thread)
 endif()
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
 file(GLOB cache_files ${CMAKE_CURRENT_SOURCE_DIR}/src/*/*.cc )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-add_library(cache STATIC ${cache_files})
-install(TARGETS cache DESTINATION lib)
+add_library(hyper_cache STATIC ${cache_files})
+install(TARGETS hyper_cache DESTINATION lib)
 
 add_executable(cache_rw_mixed_bench ${CMAKE_CURRENT_SOURCE_DIR}/src/cache_rw_mixed_bench.cc)
-target_link_libraries(cache_rw_mixed_bench PRIVATE benchmark::benchmark pthread cache)
+target_link_libraries(cache_rw_mixed_bench PRIVATE benchmark::benchmark pthread hyper_cache)
 
 add_executable(cache_rw_separate_bench ${CMAKE_CURRENT_SOURCE_DIR}/src/cache_rw_separate_bench.cc)
-target_link_libraries(cache_rw_separate_bench PRIVATE benchmark::benchmark pthread cache)
+target_link_libraries(cache_rw_separate_bench PRIVATE benchmark::benchmark pthread hyper_cache)

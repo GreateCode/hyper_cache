@@ -8,7 +8,7 @@
 
 #include "util/murmur128_hash.h"
 
-namespace cache {
+namespace hyper_cache {
 
 static inline uint64_t rotl64(uint64_t x, int8_t r) {
   return (x << r) | (x >> (64 - r));
@@ -139,4 +139,4 @@ void MurmurHash3_x64_128(const void *key, int32_t len, uint32_t seed,
   *out_h2 = h2;
 }
 
-} // namespace cache
+} // namespace hyper_cache

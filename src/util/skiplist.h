@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace cache {
+namespace hyper_cache {
 
 struct Node {
   std::string key;
@@ -143,4 +143,4 @@ private:
   const float p_ = 0.5; // 生成新层的概率（通常是 0.5）
 };
 
-} // namespace cache
+} // namespace hyper_cache

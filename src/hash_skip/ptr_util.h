@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace cache::hash_skip {
+namespace hyper_cache::hash_skip {
 
 static constexpr int64_t VERSION_MASK = 0x3FFFL; // 14 bits
 
@@ -60,4 +60,4 @@ private:
   uintptr_t p_;
 };
 
-} // namespace cache::hash_skip
+} // namespace hyper_cache::hash_skip

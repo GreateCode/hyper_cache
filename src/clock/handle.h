@@ -5,7 +5,7 @@
 
 #include "util/atomic.h"
 
-namespace cache::clock {
+namespace hyper_cache::clock {
 
 using ObjectPtr = void *;
 using DeleterFn = void (*)(ObjectPtr obj);
@@ -74,4 +74,4 @@ struct alignas(64U) HandleImpl : public ClockHandle {
   RelaxedAtomic<uint32_t> displacements{};
 };
 
-} // namespace cache::clock
+} // namespace hyper_cache::clock

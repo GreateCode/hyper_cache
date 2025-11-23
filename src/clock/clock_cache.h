@@ -8,7 +8,7 @@
 #include "clock/handle.h"
 #include "util/atomic.h"
 
-namespace cache::clock {
+namespace hyper_cache::clock {
 
 // hash
 using HashKeyFnType = UniqueId64x2 (*)(const void *key, int32_t key_size,
@@ -97,4 +97,4 @@ private:
   const std::unique_ptr<HandleImpl[]> array_;
 };
 
-} // namespace cache::clock
+} // namespace hyper_cache::clock

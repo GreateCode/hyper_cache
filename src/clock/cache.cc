@@ -2,7 +2,7 @@
 #include "clock/clock_cache.h"
 #include <memory>
 
-namespace cache::clock {
+namespace hyper_cache::clock {
 
 Cache::Cache(const CacheOptions &options) : options_(options) {
   shards_.reserve(options.shard_num);
@@ -87,4 +87,4 @@ UniqueId64x2 Cache::HashKey(const void *key, int32_t key_size) {
   return options_.hash_key_fn(key, key_size, options_.hash_seed);
 }
 
-} // namespace cache::clock
+} // namespace hyper_cache::clock

@@ -4,7 +4,7 @@
 #include "hash_skip/ptr_util.h"
 #include "util/atomic.h"
 
-namespace cache::hash_skip {
+namespace hyper_cache::hash_skip {
 
 #if 1
 // 封装 std::shared_ptr<T> 的原子读写, support multi-load:multi-store
@@ -120,8 +120,9 @@ public:
   }
 
 private:
+  // c++ >= 20
   std::atomic<std::shared_ptr<T>> ptr_;
 };
 #endif
 
-} // namespace cache::hash_skip
+} // namespace hyper_cache::hash_skip

@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace cache::lru {
+namespace hyper_cache::lru {
 
 struct CacheSharedOptions {
   size_t capacity = 0;   // total capacity of the cache
@@ -134,4 +134,4 @@ private:
   std::mutex mutex_;
 };
 
-} // namespace cache::lru
+} // namespace hyper_cache::lru

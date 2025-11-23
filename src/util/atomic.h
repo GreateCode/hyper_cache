@@ -2,7 +2,7 @@
 
 #include <atomic>
 
-namespace cache {
+namespace hyper_cache {
 
 template <typename T> class RelaxedAtomic {
 public:
@@ -85,4 +85,4 @@ public:
   }
 };
 
-} // namespace cache
+} // namespace hyper_cache

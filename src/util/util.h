@@ -7,7 +7,7 @@
 #define unlikely(x) __builtin_expect(!!(x), 0)
 #endif
 
-namespace cache {
+namespace hyper_cache {
 
 double FastRandomDouble();
 
@@ -27,4 +27,4 @@ private:
   double stddev_;
 };
 
-} // namespace cache
+} // namespace hyper_cache

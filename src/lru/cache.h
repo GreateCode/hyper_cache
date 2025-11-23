@@ -9,7 +9,7 @@
 
 #include "lru/cache_shard.h"
 
-namespace cache::lru {
+namespace hyper_cache::lru {
 
 struct LRUCacheOptions {
   size_t capacity = 0;   // total capacity of the cache
@@ -74,4 +74,4 @@ private:
   std::vector<std::unique_ptr<LRUCacheShard<Key>>> shards_;
 };
 
-} // namespace cache::lru
+} // namespace hyper_cache::lru

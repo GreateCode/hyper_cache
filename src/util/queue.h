@@ -7,7 +7,7 @@
 #include "util/atomic.h"
 #include "util/util.h"
 
-namespace cache {
+namespace hyper_cache {
 
 template <typename T> class Queue {
 public:
@@ -117,4 +117,4 @@ private:
   AcqRelAtomic<int64_t> tail_;
 };
 
-} // namespace cache
+} // namespace hyper_cache

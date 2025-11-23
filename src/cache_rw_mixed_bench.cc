@@ -13,7 +13,7 @@
 #include "util/atomic.h"
 #include "util/util.h"
 
-class Handle : public cache::hash_skip::Handle {
+class Handle : public hyper_cache::hash_skip::Handle {
 public:
   Handle(int64_t val) : val_(val) {}
   int32_t Charge() const override { return sizeof(val_); }
@@ -25,28 +25,28 @@ private:
 
 const int64_t capicity = 3250000 * 16 * 2;
 
-cache::lru::LRUCacheOptions lru_options = {
+hyper_cache::lru::LRUCacheOptions lru_options = {
     .capacity = capicity,
     .entry_num = 8388608,
     .shard_num = 128,
 };
-cache::lru::LRUCache<int64_t> lru_cache(lru_options);
-cache::hash_skip::HashSkipCache hs_cache(capicity, 10000 * 600);
+hyper_cache::lru::LRUCache<int64_t> lru_cache(lru_options);
+hyper_cache::hash_skip::HashSkipCache hs_cache(capicity, 10000 * 600);
 
-cache::clock::CacheOptions cc_options = {{
-                                             .capacity = capicity,
-                                             .length = 8388608,
-                                             .value_size = 16,
-                                         },
-                                         .shard_num = 128};
-cache::clock::Cache clock_cache(cc_options);
+hyper_cache::clock::CacheOptions cc_options = {{
+                                                   .capacity = capicity,
+                                                   .length = 8388608,
+                                                   .value_size = 16,
+                                               },
+                                               .shard_num = 128};
+hyper_cache::clock::Cache clock_cache(cc_options);
 
-cache::ThreadSafeNormalRandom rnd(0.0, 10.0);
+hyper_cache::ThreadSafeNormalRandom rnd(0.0, 10.0);
 
 // 0:false, 1:true
 struct OpStat {
-  cache::AcqRelAtomic<int64_t> insert_status[2];
-  cache::AcqRelAtomic<int64_t> get_status[2];
+  hyper_cache::AcqRelAtomic<int64_t> insert_status[2];
+  hyper_cache::AcqRelAtomic<int64_t> get_status[2];
 
   OpStat() {
     insert_status[0].StoreRelaxed(0);
@@ -72,7 +72,7 @@ OpStat clock_stat;
 
 const bool enable_stat = false;
 
-void CalcClockCacheDisplacements(const cache::clock::Cache &clock_cache) {
+void CalcClockCacheDisplacements(const hyper_cache::clock::Cache &clock_cache) {
   std::vector<size_t> displacements;
   displacements.reserve(clock_cache.GetLength());
   int64_t displacements_sum = 0;
@@ -106,7 +106,7 @@ static void BenchmarkLRUCacheReadWrite(benchmark::State &state) {
   const double miss_ratio = state.range(1) * 1.0 / 100;
   for (auto s : state) {
     int64_t key = rnd() * max_num;
-    cache::lru::Handle handle;
+    hyper_cache::lru::Handle handle;
 
     if (lru_cache.Get(key, &handle)) {
       if (enable_stat) {
@@ -116,7 +116,7 @@ static void BenchmarkLRUCacheReadWrite(benchmark::State &state) {
     }
     benchmark::DoNotOptimize(handle);
 
-    if (cache::FastRandomDouble() < miss_ratio) {
+    if (hyper_cache::FastRandomDouble() < miss_ratio) {
       // if (butil::fast_rand_double() < miss_ratio) {
       handle.value = std::make_shared<int64_t>(key);
       handle.total_charge = 16;
@@ -144,7 +144,7 @@ static void BenchmarkHSCacheReadWrite(benchmark::State &state) {
     }
     benchmark::DoNotOptimize(handle);
 
-    if (cache::FastRandomDouble() < miss_ratio) {
+    if (hyper_cache::FastRandomDouble() < miss_ratio) {
       auto handle = std::make_shared<Handle>(key);
       bool succ = hs_cache.Insert(key, handle);
       if (enable_stat) {
@@ -157,13 +157,14 @@ static void BenchmarkHSCacheReadWrite(benchmark::State &state) {
 static void BenchmarkClockCacheReadWrite(benchmark::State &state) {
   const int64_t max_num = state.range(0);
   const double miss_ratio = state.range(1) * 1.0 / 100;
-  cache::clock::DeleterFn del_cb = [](cache::clock::ObjectPtr obj) {
+  hyper_cache::clock::DeleterFn del_cb = [](hyper_cache::clock::ObjectPtr obj) {
     delete static_cast<int64_t *>(obj);
   };
   for (auto s : state) {
     int64_t key = rnd() * max_num;
 
-    auto handle = clock_cache.Lookup(&key, sizeof(key));
+    auto handle =
+        clock_cache.Lookup(reinterpret_cast<void *>(&key), sizeof(key));
     if (handle) {
       if (enable_stat) {
         const bool succ = *static_cast<int64_t *>(handle->value) == key;
@@ -173,8 +174,8 @@ static void BenchmarkClockCacheReadWrite(benchmark::State &state) {
     }
     benchmark::DoNotOptimize(handle);
 
-    if (cache::FastRandomDouble() < miss_ratio) {
-      cache::clock::Handle handle;
+    if (hyper_cache::FastRandomDouble() < miss_ratio) {
+      hyper_cache::clock::Handle handle;
       handle.value = new int64_t(key);
       handle.del_cb = del_cb;
       handle.total_charge = 16;

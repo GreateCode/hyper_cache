@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <ctime>
 
-namespace cache {
+namespace hyper_cache {
 
 double FastRandomDouble() {
   struct XorShiftState {
@@ -27,4 +27,4 @@ double FastRandomDouble() {
   return ((1.0) + ((rand_int & mask) * (1.0 / (1ULL << 52)))) - 1.0;
 }
 
-} // namespace cache
+} // namespace hyper_cache

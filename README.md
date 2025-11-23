@@ -41,10 +41,10 @@ This project presents three high-performance lru cache implementations designed 
 ### 3. ClockCache (High Performance CLOCK)
 > **Open Addressing & Cache Locality / 开放寻址与极致局部性**
 
-* **Origin**: An enhanced derivative of RocksDB's `FixedHyperClockCache`.
+* **Origin**: An enhanced derivative of RocksDB's `FixedHyperClockCache`, Rocksdb's HCC only support block cache.
 * **Open Addressing**: Unlike the chaining approach, this implementation uses **Open Addressing** to resolve hash collisions. This layout is contiguous in memory, significantly improving **CPU Cache Locality** and reducing pointer chasing overhead.
 * **Optimized Insert Path**: Modify and optimize the Insert and related logic to enhance the performance of the Insert operation.
-* **算法原型**：基于 RocksDB 的 `FixedHyperClockCache` 进行深度定制与改进。
+* **算法原型**：基于 RocksDB 的 `FixedHyperClockCache` 进行深度定制与改进, Rocksdb的HCC只支持block cache。
 * **开放寻址法 (Open Addressing)**：摒弃指针链表，采用开放寻址法解决哈希冲突。内存布局连续，显著提升了 **CPU 缓存局部性 (Cache Locality)**，减少cacheline miss。
 * **插入路径优化**：优化了 `Insert` 逻辑，在保证安全的前提下，进一步减少了指令数，实现了极高的并发写入性能。
 

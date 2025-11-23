@@ -7,7 +7,7 @@
 #include "hash_skip/ptr_util.h"
 #include "util/atomic.h"
 
-namespace cache::hash_skip {
+namespace hyper_cache::hash_skip {
 
 const int16_t MAX_HIT_COUNT = 1000;
 
@@ -95,4 +95,4 @@ private:
             // coldlist, if cold will decay
 };
 
-} // namespace cache::hash_skip
+} // namespace hyper_cache::hash_skip

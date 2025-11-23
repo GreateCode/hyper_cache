@@ -3,7 +3,7 @@
 #include "clock/clock_cache.h"
 #include <vector>
 
-namespace cache::clock {
+namespace hyper_cache::clock {
 
 struct CacheOptions : public ClockCacheOptions {
   size_t shard_num = 1; // number of shards, suggest 2^n
@@ -44,4 +44,4 @@ private:
   CacheOptions options_;
 };
 
-} // namespace cache::clock
+} // namespace hyper_cache::clock

@@ -8,7 +8,7 @@
 #include "util/murmur128_hash.h"
 #include "util/util.h"
 
-namespace cache::clock {
+namespace hyper_cache::clock {
 
 const int64_t kInitHitCount = 3;
 const int64_t kMaxHitCount = 2000;
@@ -478,4 +478,4 @@ void ClockCache::TrackAndReleaseEvictedEntry(ClockHandle *h) {
   FreeDataMarkEmpty(h);
 }
 
-} // namespace cache::clock
+} // namespace hyper_cache::clock

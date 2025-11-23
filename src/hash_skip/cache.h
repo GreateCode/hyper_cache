@@ -13,7 +13,7 @@
 #include "util/queue.h"
 #include "util/util.h"
 
-namespace cache::hash_skip {
+namespace hyper_cache::hash_skip {
 
 struct HashSkipCacheOptions {
   size_t capacity = 0;   // total capacity of the cache
@@ -230,4 +230,4 @@ private:
   std::thread decay_thread_;
 };
 
-} // namespace cache::hash_skip
+} // namespace hyper_cache::hash_skip
