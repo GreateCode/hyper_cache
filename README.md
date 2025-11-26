@@ -82,6 +82,7 @@ Conducted comprehensive benchmarks comparing **Cost**, the smaller，the better.
 > 增加分片数有效地降低了依赖锁机制（如 LRU）的延迟。
 
 ![Mixed Workload Shard Scaling](images/cache_mixed_16threads_20miss.png)
+![Mixed Workload Shard Scaling Detail](images/cache_mixed_16threads_20miss_b.png)
 
 ### 3. Impact of Cache Miss Ratio (缓存未命中率的影响)
 
