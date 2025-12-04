@@ -54,6 +54,15 @@ This project presents three high-performance lru cache implementations designed 
 
 Conducted comprehensive benchmarks comparing **Cost**, the smaller，the better.<br>
 进行全面的基准测试，对比了不同场景下的**Cost**，越小越好。
+环境：
+```
+Run on (64 X 2699.99 MHz CPU s)
+CPU Caches:
+  L1 Data 32 KiB (x32)
+  L1 Instruction 32 KiB (x32)
+  L2 Unified 1024 KiB (x32)
+  L3 Unified 22528 KiB (x2)
+```
 
 ### 1. Separate Read/Write Operations (读写分离场景)
 
@@ -65,9 +74,10 @@ Conducted comprehensive benchmarks comparing **Cost**, the smaller，the better.
 
 **Shard Scaling (16 Threads)**
 > Evaluates the impact of sharding. LRUCache benefits significantly from more shards due to reduced lock contention.<br>
-> 分片数对性能的影响。增加分片数能显著缓解 LRUCache 的锁竞争问题。
+> 分片数对性能的影响。增加分片数能显著缓解 LRUCache 的锁竞争问题，但ClockCache表现依然较好。
 
 ![Separate Ops Shard Scaling](images/cache_sep_16threads.png)
+![Separate Ops Shard Scaling Deatil](images/cache_sep_16threads_b.png)
 
 ### 2. Mixed Read/Write Workloads (混合读写场景)
 
@@ -79,7 +89,7 @@ Conducted comprehensive benchmarks comparing **Cost**, the smaller，the better.
 
 **Shard Scaling (20% Miss Ratio)**
 > Increasing shards effectively reduces latency for lock-heavy implementations like LRU.<br>
-> 增加分片数有效地降低了依赖锁机制（如 LRU）的延迟。
+> 增加分片数有效地降低了依赖锁机制（如 LRU）的延迟，ClockCache性能依然更高。
 
 ![Mixed Workload Shard Scaling](images/cache_mixed_16threads_20miss.png)
 ![Mixed Workload Shard Scaling Detail](images/cache_mixed_16threads_20miss_b.png)
