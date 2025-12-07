@@ -10,7 +10,7 @@ This project presents three high-performance lru cache implementations designed 
 | :--- | :--- | :--- | :--- |
 | **LRUCache** | N/A | **Mutex** | Strict consistency baseline. <br> 强一致性基准。 |
 | **HSCache** | Chaining (Skiplist) | **Lockfree** | Optimized for high read/write throughput. <br> 针对高并发读写优化。 |
-| **ClockCache** | Open Addressing | **Lockfree** | Cache-locality optimized. <br> 极致的 CPU 缓存局部性。 |
+| **ClockCache** | Open Addressing | **Lockfree** | Contiguous-array layout with low pointer-chasing;. <br> 连续数组减少指针跳转。 |
 ---
 
 ## 📖 Detailed Design / 详细设计
@@ -42,10 +42,10 @@ This project presents three high-performance lru cache implementations designed 
 > **Open Addressing & Cache Locality / 开放寻址与极致局部性**
 
 * **Origin**: An enhanced derivative of RocksDB's `FixedHyperClockCache`, Rocksdb's HCC only support block cache.
-* **Open Addressing**: Unlike the chaining approach, this implementation uses **Open Addressing** to resolve hash collisions. This layout is contiguous in memory, significantly improving **CPU Cache Locality** and reducing pointer chasing overhead.
+* **Open Addressing**: Unlike the chaining approach, this implementation uses **Open Addressing** to resolve hash collisions. This layout is contiguous in memory, reducing pointer chasing overhead.
 * **Optimized Insert Path**: Modify and optimize the Insert and related logic to enhance the performance of the Insert operation.
 * **算法原型**：基于 RocksDB 的 `FixedHyperClockCache` 进行深度定制与改进, Rocksdb的HCC只支持block cache。
-* **开放寻址法 (Open Addressing)**：摒弃指针链表，采用开放寻址法解决哈希冲突。内存布局连续，显著提升了 **CPU 缓存局部性 (Cache Locality)**，减少cacheline miss。
+* **开放寻址法 (Open Addressing)**：摒弃指针链表，采用开放寻址法解决哈希冲突。内存布局连续，减少节点指针跳转。
 * **插入路径优化**：优化了 `Insert` 逻辑，在保证安全的前提下，进一步减少了指令数，实现了极高的并发写入性能。
 
 ---
