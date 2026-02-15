@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <functional>
 #include <memory>
 
@@ -60,6 +61,16 @@ public:
 
     const HandleImpl* HandlePtr(size_t idx) const { return &array_[idx]; }
 
+    bool TryPickHandle(size_t idx, Handle* handle, bool* has_handle);
+
+    uint8_t GetId() const { return id_; }
+    uint8_t SetId(uint8_t id) { return id_ = id; }
+    const ClockCacheOptions& Options() const { return options_; }
+    bool IsScaling() const { return scaling_.LoadAcquire(); }
+    void SetScaling(bool scaling) { scaling_.StoreRelease(scaling); }
+    bool IsRetired() const { return is_retired_.LoadAcquire(); }
+    void SetRetired(bool retired) { is_retired_.StoreRelease(retired); }
+
 private:
     void Evict(size_t requested_charge, EvictionData* data);
 
@@ -80,6 +91,7 @@ private:
     void TrackAndReleaseEvictedEntry(ClockHandle* h);
 
 private:
+    uint8_t id_{0};
     RelaxedAtomic<uint64_t> clock_pointer_{0};
     AcqRelAtomic<size_t> occupancy_{0};
     AcqRelAtomic<size_t> usage_{0};
@@ -94,6 +106,9 @@ private:
     const HashKeyFnType hash_key_fn_;
     const double load_factor_ = 0.65;
     const std::unique_ptr<HandleImpl[]> array_;
+    const ClockCacheOptions options_;
+    AcqRelAtomic<bool> scaling_{false};
+    AcqRelAtomic<bool> is_retired_{false};
 };
 
 }  // namespace hyper_cache::clock

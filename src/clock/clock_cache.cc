@@ -20,11 +20,11 @@ inline static uint64_t RefIncr(ClockHandle* h) { return h->meta.FetchAddAcqRel(C
 inline static void RefDecr(ClockHandle* h) { h->meta.FetchSubAcqRel(ClockHandle::kRefIncrement); }
 
 inline static int64_t RefCount(uint64_t meta) {
-    return (meta >> ClockHandle::kRefCounterShift) & ClockHandle::kCounterMask;
+    return (meta >> ClockHandle::kRefCounterShift) & ClockHandle::kRefCounterMask;
 }
 
 inline static int64_t HitCount(uint64_t meta) {
-    return (meta >> ClockHandle::kHitCounterShift) & ClockHandle::kCounterMask;
+    return (meta >> ClockHandle::kHitCounterShift) & ClockHandle::kHitCounterMask;
 }
 
 inline static void HitDecr(ClockHandle* h, int64_t count = 1) {
@@ -38,6 +38,10 @@ inline static void HitIncr(ClockHandle* h, int64_t count = 1) {
         HitDecr(h, overflow);
     }
 }
+
+inline static int64_t GetMetaId(uint64_t meta) { return (meta >> ClockHandle::kIdShift) & ClockHandle::kIdMask; }
+
+inline static void SetMetaId(ClockHandle* h, int64_t id = 0) { h->meta.StoreRelease(ClockHandle::kIdIncrement * id); }
 
 UniqueId64x2 DefaultHashKeyFn(const void* key, int32_t key_size, uint32_t seed) {
     uint64_t h1 = 0, h2 = 0;
@@ -151,7 +155,8 @@ ClockCache::ClockCache(const ClockCacheOptions& options)
       occupancy_limit_(options.length * options.load_factor),
       hash_key_fn_(options.hash_key_fn),
       hit_decr_delta_min_(options.hit_decr_delta_min),
-      array_(std::make_unique<HandleImpl[]>(options.length)) {}
+      array_(std::make_unique<HandleImpl[]>(options.length)),
+      options_(options) {}
 
 ClockCache::~ClockCache() {
     for (size_t i = 0; i < GetLength(); i++) {
@@ -162,7 +167,7 @@ ClockCache::~ClockCache() {
                 break;
             case ClockHandle::kStateInvisible:  // rare but possible
             case ClockHandle::kStateVisible:
-                assert(GetRefcount(h.meta.LoadRelaxed()) == 0);
+                assert(Refcount(h.meta.LoadRelaxed()) == 0);
                 h.FreeData();
                 Rollback(h.hashed_key, &h);
                 ReclaimEntryUsage(h.GetTotalCharge());
@@ -286,6 +291,42 @@ bool ClockCache::Erase(const UniqueId64x2& hashed_key) {
     return succ || !found;  // cache中不存在即成功
 }
 
+bool ClockCache::TryPickHandle(size_t idx, Handle* handle, bool* has_handle) {
+    HandleImpl& h       = array_[idx];
+    uint64_t meta       = h.meta.LoadAcquire();
+    const uint8_t state = meta >> ClockHandle::kStateShift;
+    if (state != ClockHandle::kStateVisible) {
+        *has_handle = false;
+        return false;
+    }
+
+    *has_handle = true;
+
+    if (RefCount(meta) > 0) {
+        return false;
+    }
+
+    if (!h.meta.CasStrongAcqRel(meta, (uint64_t{ClockHandle::kStateConstruction} << ClockHandle::kStateShift) |
+                                          (meta & ClockHandle::kHitBitMask))) {
+        return false;
+    }
+
+    Rollback(h.hashed_key, &h);
+
+    if (handle) {
+        handle->value        = h.value;
+        handle->del_cb       = h.del_cb;
+        handle->hashed_key   = h.hashed_key;
+        handle->total_charge = h.total_charge;
+    }
+    h.value  = nullptr;
+    h.del_cb = nullptr;
+    MarkEmpty(&h);
+
+    ReclaimEntryUsage(handle ? handle->GetTotalCharge() : h.GetTotalCharge());
+    return true;
+}
+
 void ClockCache::Evict(size_t requested_charge, EvictionData* data) {
     // precondition
     assert(requested_charge > 0);
@@ -373,7 +414,11 @@ HandleImpl* ClockCache::FindSlot(const UniqueId64x2& hashed_key, const MatchFn& 
 HandleImpl* ClockCache::DoInsert(const Handle& handle, bool* already_matches) {
     *already_matches = false;
     HandleImpl* e    = FindSlot(
-        handle.hashed_key, [&](HandleImpl* h) { return TryInsert(handle, h, already_matches); },
+        handle.hashed_key,
+        [&](HandleImpl* h) {
+            SetMetaId(h, GetId());
+            return TryInsert(handle, h, already_matches);
+        },
         [&](HandleImpl* h) {
             if (*already_matches) {
                 // Stop searching & roll back displacements

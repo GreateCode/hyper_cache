@@ -38,17 +38,40 @@ struct ClockHandle : public Handle {
     // -----------------------------------------------------------------------
 
     // For reading or updating counters in meta word.
-    static constexpr uint8_t kCounterNumBits = 30;
-    static constexpr uint64_t kCounterMask   = (uint64_t{1} << kCounterNumBits) - 1;
+    //    static constexpr uint8_t kCounterNumBits = 30;
+    //    static constexpr uint64_t kCounterMask   = (uint64_t{1} << kCounterNumBits) - 1;
+    //
+    //    static constexpr uint8_t kRefCounterShift = 0;
+    //    static constexpr uint64_t kRefIncrement   = uint64_t{1} << kRefCounterShift;
+    //    static constexpr uint8_t kHitCounterShift = kCounterNumBits;
+    //    static constexpr uint64_t kHitIncrement   = uint64_t{1} << kHitCounterShift;
+    //
+    //    static constexpr uint8_t kHitBitShift = 2U * kCounterNumBits;
+    //    static constexpr uint64_t kHitBitMask = uint64_t{1} << kHitBitShift;
 
-    static constexpr uint8_t kRefCounterShift = 0;
-    static constexpr uint64_t kRefIncrement   = uint64_t{1} << kRefCounterShift;
-    static constexpr uint8_t kHitCounterShift = kCounterNumBits;
-    static constexpr uint64_t kHitIncrement   = uint64_t{1} << kHitCounterShift;
+    // for ref counter
+    static constexpr uint8_t kRefCounterNumBits = 30;
+    static constexpr uint64_t kRefCounterMask   = (uint64_t{1} << kRefCounterNumBits) - 1;
+    static constexpr uint8_t kRefCounterShift   = 0;
+    static constexpr uint64_t kRefIncrement     = uint64_t{1} << kRefCounterShift;
 
-    static constexpr uint8_t kHitBitShift = 2U * kCounterNumBits;
+    // for hit counter
+    static constexpr uint8_t kHitCounterNumBits = 20;
+    static constexpr uint64_t kHitCounterMask   = (uint64_t{1} << kHitCounterNumBits) - 1;
+    static constexpr uint8_t kHitCounterShift   = kRefCounterShift + kRefCounterNumBits;
+    static constexpr uint64_t kHitIncrement     = uint64_t{1} << kHitCounterShift;
+
+    // for smooth scale
+    static constexpr uint8_t kIdNumBits    = 10;
+    static constexpr uint64_t kIdMask      = (uint64_t{1} << kIdNumBits) - 1;
+    static constexpr uint8_t kIdShift      = kHitCounterShift + kHitCounterNumBits;
+    static constexpr uint64_t kIdIncrement = uint64_t{1} << kIdShift;
+
+    // for hit bit
+    static constexpr uint8_t kHitBitShift = kIdShift + kIdNumBits;
     static constexpr uint64_t kHitBitMask = uint64_t{1} << kHitBitShift;
 
+    // for state
     static constexpr uint8_t kStateShift = kHitBitShift + 1;
 
     static constexpr uint8_t kStateOccupiedBit  = 0b100;
@@ -66,10 +89,12 @@ struct ClockHandle : public Handle {
     static constexpr uint8_t kMaxCountdown    = kHighCountdown;
 
     mutable AcqRelAtomic<uint64_t> meta{};
+
+    uint8_t Id() const { return (meta.LoadRelaxed() >> ClockHandle::kIdShift) & ClockHandle::kIdMask; }
 };  // struct ClockHandle
 
 struct alignas(64U) HandleImpl : public ClockHandle {
-    RelaxedAtomic<uint32_t> displacements{};
+    RelaxedAtomic<uint32_t> displacements{0};
 };
 
 }  // namespace hyper_cache::clock
