@@ -19,7 +19,6 @@ ShardWrapper::ShardWrapper(ClockCacheOptions options) {
     replicas_[0].StoreRelease(cc);
 
     current_idx_.StoreRelease(0);
-    retired_ref_count_.StoreRelease(0);
 }
 
 ShardWrapper::~ShardWrapper() {
@@ -28,9 +27,7 @@ ShardWrapper::~ShardWrapper() {
         if (!cc) {
             continue;
         }
-        if (scaling_.LoadAcquire() && (1 - current_idx_.LoadAcquire()) == i) {
-            assert(retired_ref_count_.LoadAcquire() == 0);
-        }
+        assert(cc->RefCount() == 0);
         delete cc;
         replicas_[i].StoreRelease(nullptr);
     }
@@ -39,27 +36,29 @@ ShardWrapper::~ShardWrapper() {
 HandleImpl* ShardWrapper::Lookup(const UniqueId64x2& hashed_key) {
     ClockCache* current = AcquireCurrent();
     if (current) {
+        current->Pin();  // protect slow Lookup: replica may become retired before return
         HandleImpl* handle = current->Lookup(hashed_key);
         if (handle) {
-            return handle;
+            return handle;  // Unpin in Release
         }
+        current->Unpin();
     }
 
     if (!scaling_.LoadAcquire()) {
         return nullptr;
     }
 
-    retired_ref_count_.FetchAddAcqRel(1);
     ClockCache* retired = AcquireRetired();
     if (!retired) {
-        retired_ref_count_.FetchSubAcqRel(1);
-    }
-    HandleImpl* handle = retired->Lookup(hashed_key);
-    if (!handle) {
-        retired_ref_count_.FetchSubAcqRel(1);
         return nullptr;
     }
-    return handle;
+    retired->Pin();
+    HandleImpl* handle = retired->Lookup(hashed_key);
+    if (!handle) {
+        retired->Unpin();
+        return nullptr;
+    }
+    return handle;  // Unpin in Release
 }
 
 bool ShardWrapper::Insert(const Handle& handle) {
@@ -67,17 +66,13 @@ bool ShardWrapper::Insert(const Handle& handle) {
     if (!current) {
         return false;
     }
-    return current->Insert(handle);
+    current->Pin();
+    bool ok = current->Insert(handle);
+    current->Unpin();
+    return ok;
 }
 
 bool ShardWrapper::Release(HandleImpl* handle) {
-    if (!scaling_.LoadAcquire()) {
-        ClockCache* current = AcquireCurrent();
-        if (current) {
-            return current->Release(handle);
-        }
-    }
-
     uint8_t id = handle->Id();
     for (int i = 0; i < replicas_.size(); ++i) {
         if (!replicas_[i].LoadAcquire()) {
@@ -89,9 +84,7 @@ bool ShardWrapper::Release(HandleImpl* handle) {
         }
         if (id == replica->GetId()) {
             replica->Release(handle);
-            if (replica->IsRetired()) {
-                retired_ref_count_.FetchSubAcqRel(1);
-            }
+            replica->Unpin();  // paired with Pin in Lookup
             return true;
         }
     }
@@ -102,20 +95,21 @@ bool ShardWrapper::Erase(const UniqueId64x2& hashed_key) {
     bool succ           = false;
     ClockCache* current = AcquireCurrent();
     if (current) {
+        current->Pin();
         succ = current->Erase(hashed_key);
+        current->Unpin();
         if (!scaling_.LoadAcquire()) {
             return succ;
         }
     }
 
-    retired_ref_count_.FetchAddAcqRel(1);
     ClockCache* retired = AcquireRetired();
     if (!retired) {
-        retired_ref_count_.FetchSubAcqRel(1);
         return succ;
     }
+    retired->Pin();
     succ &= retired->Erase(hashed_key);
-    retired_ref_count_.FetchSubAcqRel(1);
+    retired->Unpin();
     return succ;
 }
 
@@ -127,6 +121,7 @@ const HandleImpl* ShardWrapper::HandlePtr(size_t idx) const {
     if (!scaling_.LoadAcquire()) {
         return nullptr;
     }
+
     const ClockCache* retired = AcquireRetired();
     if (retired && idx < retired->GetLength()) {
         return retired->HandlePtr(idx);
@@ -198,6 +193,8 @@ void ShardWrapper::SmoothScale() {
     // new current & retired
     current = AcquireCurrent();
     retired = AcquireRetired();
+    retired->SetRetired(true);
+
     std::deque<std::int64_t> fail_idxs;
 
     auto promote_fn = [&](int64_t i) -> bool {
@@ -226,7 +223,7 @@ void ShardWrapper::SmoothScale() {
 
     scaling_.StoreRelease(false);
 
-    while (retired_ref_count_.LoadAcquire() > 0) {
+    while (retired->PinCount() > 0) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 

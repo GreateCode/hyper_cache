@@ -1,8 +1,10 @@
 #include "clock/clock_cache.h"
 
 #include <assert.h>
+#include <pthread.h>
 
 #include <algorithm>
+#include <atomic>
 #include <functional>
 #include <memory>
 
@@ -10,6 +12,51 @@
 #include "util/util.h"
 
 namespace hyper_cache::clock {
+
+namespace {
+
+thread_local uintptr_t g_ref_count_stripe_token = 0;
+
+// Mix bits for better distribution when token is sequential (e.g. bthread id). K=64.
+constexpr int kStripeMask = 63;
+inline uintptr_t StripeIndex(uintptr_t token) {
+    uintptr_t h = token;
+    h ^= h >> 33;
+    h *= 0xff51afd7ed558ccdULL;
+    h ^= h >> 33;
+    return h & kStripeMask;
+}
+
+}  // namespace
+
+void ClockCache::SetRefCountStripeToken(uintptr_t token) { g_ref_count_stripe_token = token; }
+
+uintptr_t ClockCache::GetRefCountStripeToken() {
+    uintptr_t t = g_ref_count_stripe_token;
+    if (t != 0) {
+        return t;
+    }
+    return static_cast<uintptr_t>(reinterpret_cast<uintptr_t>(pthread_self()));
+}
+
+void ClockCache::Pin() {
+    uintptr_t i = StripeIndex(GetRefCountStripeToken());
+    ref_count_stripes_[i].count.FetchAddAcqRel(1);
+}
+
+void ClockCache::Unpin() {
+    uintptr_t i = StripeIndex(GetRefCountStripeToken());
+    ref_count_stripes_[i].count.FetchSubAcqRel(1);
+}
+
+int64_t ClockCache::PinCount() const {
+    int64_t sum = 0;
+    for (int i = 0; i < kRefCountStripes; ++i) {
+        sum += ref_count_stripes_[i].count.LoadRelaxed();
+    }
+    std::atomic_thread_fence(std::memory_order_acquire);
+    return sum;
+}
 
 const int64_t kInitHitCount         = 3;
 const int64_t kMaxHitCount          = 2000;

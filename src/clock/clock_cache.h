@@ -71,6 +71,23 @@ public:
     bool IsRetired() const { return is_retired_.LoadAcquire(); }
     void SetRetired(bool retired) { is_retired_.StoreRelease(retired); }
 
+    // Striped ref count: Pin before use, Unpin when done. Scale waits for GetRefCount()==0 before delete.
+    void Pin();
+    void Unpin();
+    int64_t PinCount() const;
+
+    // Optional: set per-bthread token for better stripe distribution (e.g. bthread_self()). Defaults to pthread_self().
+    static void SetRefCountStripeToken(uintptr_t token);
+    static uintptr_t GetRefCountStripeToken();
+
+private:
+    static constexpr int kRefCountStripes    = 64;  // power of 2 for (token & (kRefCountStripes-1))
+    static constexpr int kRefCountStripeMask = kRefCountStripes - 1;
+    struct alignas(64) RefCountStripe {
+        AcqRelAtomic<int64_t> count{0};
+    };
+    RefCountStripe ref_count_stripes_[kRefCountStripes];
+
 private:
     void Evict(size_t requested_charge, EvictionData* data);
 
