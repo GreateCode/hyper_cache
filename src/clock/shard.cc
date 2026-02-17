@@ -36,8 +36,8 @@ ShardWrapper::~ShardWrapper() {
 bool ShardWrapper::Lookup(const UniqueId64x2& hashed_key, HandlePin* handle_pin) {
     ClockCache* current = AcquireCurrent();
     if (current) {
-        return current->Lookup(hashed_key,
-                               handle_pin);  // protect slow Lookup: replica may become retired before return
+        // protect slow Lookup: replica may become retired before return
+        return current->Lookup(hashed_key, handle_pin);
     }
 
     if (!scaling_.LoadAcquire()) {
@@ -65,9 +65,6 @@ bool ShardWrapper::Release(HandlePin* handle_pin) {
     }
     uint8_t id = handle_pin->handle->Id();
     for (int i = 0; i < replicas_.size(); ++i) {
-        if (!replicas_[i].LoadAcquire()) {
-            continue;
-        }
         ClockCache* replica = replicas_[i].LoadAcquire();
         if (!replica) {
             continue;
