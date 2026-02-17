@@ -2,7 +2,7 @@
 
 #include <memory>
 
-#include "clock/clock_cache.h"
+#include "clock/handle.h"
 
 namespace hyper_cache::clock {
 
@@ -14,11 +14,16 @@ Cache::Cache(const CacheOptions& options) : options_(options) {
     shard_options.length            = options.length / options.shard_num;
 
     for (int i = 0; i < options.shard_num; ++i) {
-        shards_.emplace_back(std::make_unique<ClockCache>(shard_options));
+        shards_.emplace_back(std::make_unique<ShardWrapper>(shard_options));
     }
 }
 
 Cache::~Cache() { shards_.clear(); }
+
+bool Cache::Lookup(void* key, int32_t key_size, HandlePin* handle_pin) {
+    const UniqueId64x2 hashed_key = HashKey(key, key_size);
+    return GetShard(hashed_key)->Lookup(hashed_key, handle_pin);
+}
 
 HandleImpl* Cache::Lookup(void* key, int32_t key_size) {
     const UniqueId64x2 hashed_key = HashKey(key, key_size);
@@ -31,19 +36,18 @@ bool Cache::Insert(void* key, int32_t key_size, const Handle& handle) {
     return GetShard(hashed_key)->Insert(handle);
 }
 
-bool Cache::Release(HandleImpl* handle) {
-    const UniqueId64x2 hashed_key = handle->GetHash();
-    return GetShard(hashed_key)->Release(handle);
+bool Cache::Release(HandlePin* handle_pin) {
+    if (!handle_pin || !handle_pin->handle) {
+        return false;
+    }
+    return GetShard(handle_pin->handle->GetHash())->Release(handle_pin);
 }
 
-bool Cache::Erase(const UniqueId64x2& hashed_key) { return GetShard(hashed_key)->Erase(hashed_key); }
-
-size_t Cache::GetOccupancy() const {
-    size_t occupancy = 0;
-    for (auto& shard : shards_) {
-        occupancy += shard->GetOccupancy();
+bool Cache::Release(HandleImpl* handle) {
+    if (!handle) {
+        return false;
     }
-    return occupancy;
+    return GetShard(handle->GetHash())->Release(handle);
 }
 
 size_t Cache::GetUsage() const {
@@ -70,11 +74,11 @@ size_t Cache::GetOccupancyLimit() const {
     return occupancy_limit;
 }
 
-const std::vector<std::unique_ptr<ClockCache>>& Cache::GetShards() const { return shards_; }
+const std::vector<std::unique_ptr<ShardWrapper>>& Cache::GetShards() const { return shards_; }
 
-ClockCache* Cache::GetShard(size_t shard_idx) { return shards_[shard_idx].get(); }
+ShardWrapper* Cache::GetShard(size_t shard_idx) { return shards_[shard_idx].get(); }
 
-ClockCache* Cache::GetShard(const UniqueId64x2& hashed_key) {
+ShardWrapper* Cache::GetShard(const UniqueId64x2& hashed_key) {
     const int32_t shard_idx = hashed_key[0] % shards_.size();
     return GetShard(shard_idx);
 }

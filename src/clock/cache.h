@@ -2,7 +2,8 @@
 
 #include <vector>
 
-#include "clock/clock_cache.h"
+#include "clock/handle.h"
+#include "clock/shard.h"
 
 namespace hyper_cache::clock {
 
@@ -16,10 +17,12 @@ public:
     Cache(const CacheOptions& options);
     ~Cache();
 
+    bool Lookup(void* key, int32_t key_size, HandlePin* handle_pin);
     HandleImpl* Lookup(void* key, int32_t key_size);
 
     bool Insert(void* key, int32_t key_size, const Handle& handle);
 
+    bool Release(HandlePin* handle_pin);
     bool Release(HandleImpl* handle);
 
     bool Erase(const UniqueId64x2& hashed_key);
@@ -32,16 +35,16 @@ public:
 
     size_t GetOccupancyLimit() const;
 
-    ClockCache* GetShard(size_t shard_idx);
+    ShardWrapper* GetShard(size_t shard_idx);
 
-    const std::vector<std::unique_ptr<ClockCache>>& GetShards() const;
+    const std::vector<std::unique_ptr<ShardWrapper>>& GetShards() const;
 
 private:
     UniqueId64x2 HashKey(const void* key, int32_t key_size);
-    ClockCache* GetShard(const UniqueId64x2& hashed_key);
+    ShardWrapper* GetShard(const UniqueId64x2& hashed_key);
 
 private:
-    std::vector<std::unique_ptr<ClockCache>> shards_;
+    std::vector<std::unique_ptr<ShardWrapper>> shards_;
     CacheOptions options_;
 };
 

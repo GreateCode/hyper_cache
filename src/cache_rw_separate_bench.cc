@@ -4,7 +4,7 @@
 #include <queue>
 #include <sstream>
 
-#include "clock/cache2.h"
+#include "clock/cache.h"
 #include "hash_skip/cache.h"
 #include "hash_skip/node.h"
 #include "lru/cache.h"
@@ -31,14 +31,14 @@ hyper_cache::lru::LRUCacheOptions lru_options = {
 hyper_cache::lru::LRUCache<int64_t> lru_cache(lru_options);
 hyper_cache::hash_skip::HashSkipCache hs_cache(capicity, 10000 * 600);
 
-hyper_cache::clock::CacheOptions2 cc_options = {{
-                                                    .capacity   = capicity,
-                                                    .length     = 8388608,
-                                                    .value_size = 16,
-                                                },
-                                                .shard_num = 16};
+hyper_cache::clock::CacheOptions cc_options = {{
+                                                   .capacity   = capicity,
+                                                   .length     = 8388608,
+                                                   .value_size = 16,
+                                               },
+                                               .shard_num = 16};
 
-hyper_cache::clock::Cache2 clock_cache(cc_options);
+hyper_cache::clock::Cache clock_cache(cc_options);
 
 // 0:false, 1:true
 struct OpStat {
@@ -67,7 +67,7 @@ OpStat clock_stat;
 
 const bool enable_stat = false;
 
-void CalcClockCacheDisplacements(const hyper_cache::clock::Cache2& clock_cache) {
+void CalcClockCacheDisplacements(const hyper_cache::clock::Cache& clock_cache) {
     std::vector<size_t> displacements;
     displacements.reserve(clock_cache.GetLength());
     int64_t displacements_sum = 0;

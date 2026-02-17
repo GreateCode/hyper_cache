@@ -51,6 +51,14 @@ bool ShardWrapper::Lookup(const UniqueId64x2& hashed_key, HandlePin* handle_pin)
     return retired->Lookup(hashed_key, handle_pin);
 }
 
+HandleImpl* ShardWrapper::Lookup(const UniqueId64x2& hashed_key) {
+    ClockCache* current = AcquireCurrent();
+    if (current) {
+        return current->Lookup(hashed_key);
+    }
+    return nullptr;
+}
+
 bool ShardWrapper::Insert(const Handle& handle) {
     ClockCache* current = AcquireCurrent();
     if (!current) {
@@ -75,6 +83,14 @@ bool ShardWrapper::Release(HandlePin* handle_pin) {
         }
     }
     return false;
+}
+
+bool ShardWrapper::Release(HandleImpl* handle) {
+    ClockCache* current = AcquireCurrent();
+    if (!current) {
+        return false;
+    }
+    return current->Release(handle);
 }
 
 bool ShardWrapper::Erase(const UniqueId64x2& hashed_key) {

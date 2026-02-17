@@ -17,8 +17,13 @@ public:
     ~ShardWrapper();
 
     bool Lookup(const UniqueId64x2& hashed_key, HandlePin* handle_pin);
+    HandleImpl* Lookup(const UniqueId64x2& hashed_key);
+
     bool Insert(const Handle& handle);
+
     bool Release(HandlePin* handle_pin);
+    bool Release(HandleImpl* handle);
+
     bool Erase(const UniqueId64x2& hashed_key);
 
     const HandleImpl* HandlePtr(size_t idx) const;
