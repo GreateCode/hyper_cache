@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include "clock/handle.h"
 #include "clock/shard.h"
 
 namespace hyper_cache::clock {
@@ -16,11 +17,11 @@ public:
     Cache2(const CacheOptions2& options);
     ~Cache2();
 
-    HandleImpl* Lookup(void* key, int32_t key_size);
+    bool Lookup(void* key, int32_t key_size, HandlePin* handle_pin);
 
     bool Insert(void* key, int32_t key_size, const Handle& handle);
 
-    bool Release(HandleImpl* handle);
+    bool Release(HandlePin* handle_pin);
 
     bool Erase(const UniqueId64x2& hashed_key);
 

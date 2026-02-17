@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <thread>
 
+#include "clock/handle.h"
+
 namespace hyper_cache::clock {
 
 class ShardWrapper {
@@ -14,9 +16,9 @@ public:
     ShardWrapper(ClockCacheOptions options);
     ~ShardWrapper();
 
-    HandleImpl* Lookup(const UniqueId64x2& hashed_key);
+    bool Lookup(const UniqueId64x2& hashed_key, HandlePin* handle_pin);
     bool Insert(const Handle& handle);
-    bool Release(HandleImpl* handle);
+    bool Release(HandlePin* handle_pin);
     bool Erase(const UniqueId64x2& hashed_key);
 
     const HandleImpl* HandlePtr(size_t idx) const;

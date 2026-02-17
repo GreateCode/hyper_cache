@@ -42,7 +42,11 @@ public:
     ClockCache(const ClockCacheOptions& options);
     ~ClockCache();
 
+    bool Lookup(const UniqueId64x2& hash_key, HandlePin* handle_pin);
     HandleImpl* Lookup(const UniqueId64x2& hash_key);
+    bool Release(HandleImpl* handle);
+    bool Release(HandlePin* handle_pin);
+
     bool Insert(const Handle& handle);
 
     size_t GetCapacity() const { return capacity_; }
@@ -50,8 +54,6 @@ public:
     size_t GetOccupancy() const { return occupancy_.LoadRelaxed(); }
 
     size_t GetUsage() const { return usage_.LoadRelaxed(); }
-
-    bool Release(HandleImpl* handle);
 
     bool Erase(const UniqueId64x2& hashed_key);
 
@@ -72,8 +74,8 @@ public:
     void SetRetired(bool retired) { is_retired_.StoreRelease(retired); }
 
     // Striped ref count: Pin before use, Unpin when done. Scale waits for GetRefCount()==0 before delete.
-    void Pin();
-    void Unpin();
+    int32_t Pin();
+    void Unpin(int32_t id);
     int64_t PinCount() const;
 
     // Optional: set per-bthread token for better stripe distribution (e.g. bthread_self()). Defaults to pthread_self().

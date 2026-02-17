@@ -97,4 +97,9 @@ struct alignas(64U) HandleImpl : public ClockHandle {
     RelaxedAtomic<uint32_t> displacements{0};
 };
 
+struct HandlePin {
+    HandleImpl* handle{nullptr};
+    int32_t pin_id{-1};
+};
+
 }  // namespace hyper_cache::clock

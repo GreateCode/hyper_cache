@@ -180,16 +180,16 @@ static void BenchmarkHSCacheGet(benchmark::State& state) {
 static void BenchmarkClockCacheGet(benchmark::State& state) {
     int max_num = state.range(0);
     for (auto s : state) {
-        int64_t key                            = rnd() * max_num;
-        hyper_cache::clock::HandleImpl* handle = nullptr;
-        if (handle = clock_cache.Lookup(&key, sizeof(key)); handle) {
+        int64_t key = rnd() * max_num;
+        hyper_cache::clock::HandlePin handle_pin;
+        if (clock_cache.Lookup(&key, sizeof(key), &handle_pin)) {
             if (enable_stat) {
-                const bool succ = *static_cast<int64_t*>(handle->value) == key;
+                const bool succ = *static_cast<int64_t*>(handle_pin.handle->value) == key;
                 clock_stat.get_status[succ].FetchAddRelaxed(1);
             }
-            clock_cache.Release(handle);
+            clock_cache.Release(&handle_pin);
         }
-        benchmark::DoNotOptimize(handle);
+        benchmark::DoNotOptimize(handle_pin.handle);
     }
 }
 

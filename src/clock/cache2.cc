@@ -2,8 +2,6 @@
 
 #include <memory>
 
-#include "clock/shard.h"
-
 namespace hyper_cache::clock {
 
 Cache2::Cache2(const CacheOptions2& options) : options_(options) {
@@ -20,9 +18,9 @@ Cache2::Cache2(const CacheOptions2& options) : options_(options) {
 
 Cache2::~Cache2() { shards_.clear(); }
 
-HandleImpl* Cache2::Lookup(void* key, int32_t key_size) {
+bool Cache2::Lookup(void* key, int32_t key_size, HandlePin* handle_pin) {
     const UniqueId64x2 hashed_key = HashKey(key, key_size);
-    return GetShard(hashed_key)->Lookup(hashed_key);
+    return GetShard(hashed_key)->Lookup(hashed_key, handle_pin);
 }
 
 bool Cache2::Insert(void* key, int32_t key_size, const Handle& handle) {
@@ -31,19 +29,11 @@ bool Cache2::Insert(void* key, int32_t key_size, const Handle& handle) {
     return GetShard(hashed_key)->Insert(handle);
 }
 
-bool Cache2::Release(HandleImpl* handle) {
-    const UniqueId64x2 hashed_key = handle->GetHash();
-    return GetShard(hashed_key)->Release(handle);
-}
-
-bool Cache2::Erase(const UniqueId64x2& hashed_key) { return GetShard(hashed_key)->Erase(hashed_key); }
-
-size_t Cache2::GetOccupancy() const {
-    size_t occupancy = 0;
-    for (auto& shard : shards_) {
-        occupancy += shard->GetOccupancy();
+bool Cache2::Release(HandlePin* handle_pin) {
+    if (!handle_pin || !handle_pin->handle) {
+        return false;
     }
-    return occupancy;
+    return GetShard(handle_pin->handle->GetHash())->Release(handle_pin);
 }
 
 size_t Cache2::GetUsage() const {

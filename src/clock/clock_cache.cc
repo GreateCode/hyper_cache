@@ -8,12 +8,27 @@
 #include <functional>
 #include <memory>
 
+#include "clock/handle.h"
 #include "util/murmur128_hash.h"
 #include "util/util.h"
 
 namespace hyper_cache::clock {
 
 namespace {
+
+class PinGuard {
+public:
+    PinGuard(ClockCache* cache) : cache_(cache), pin_id_(cache->Pin()) {}
+    ~PinGuard() {
+        if (cache_) {
+            cache_->Unpin(pin_id_);
+        }
+    }
+
+private:
+    ClockCache* cache_{nullptr};
+    int32_t pin_id_{-1};
+};
 
 thread_local uintptr_t g_ref_count_stripe_token = 0;
 
@@ -39,14 +54,17 @@ uintptr_t ClockCache::GetRefCountStripeToken() {
     return static_cast<uintptr_t>(reinterpret_cast<uintptr_t>(pthread_self()));
 }
 
-void ClockCache::Pin() {
+int32_t ClockCache::Pin() {
     uintptr_t i = StripeIndex(GetRefCountStripeToken());
     ref_count_stripes_[i].count.FetchAddAcqRel(1);
+    return static_cast<int32_t>(i);
 }
 
-void ClockCache::Unpin() {
-    uintptr_t i = StripeIndex(GetRefCountStripeToken());
-    ref_count_stripes_[i].count.FetchSubAcqRel(1);
+void ClockCache::Unpin(int32_t id) {
+    if (id < 0 || id >= kRefCountStripes) {
+        return;
+    }
+    ref_count_stripes_[id].count.FetchSubAcqRel(1);
 }
 
 int64_t ClockCache::PinCount() const {
@@ -234,8 +252,26 @@ ClockCache::~ClockCache() {
     assert(occupancy_.LoadRelaxed() == 0);
 }
 
-bool ClockCache::Release(HandleImpl* h) {
-    RefDecr(h);
+bool ClockCache::Release(HandlePin* handle_pin) {
+    Release(handle_pin->handle);
+    Unpin(handle_pin->pin_id);
+    return true;
+}
+
+bool ClockCache::Release(HandleImpl* handle) {
+    if (handle) {
+        RefDecr(handle);
+    }
+    return true;
+}
+
+bool ClockCache::Lookup(const UniqueId64x2& hashed_key, HandlePin* handle_pin) {
+    handle_pin->pin_id = Pin();
+    handle_pin->handle = Lookup(hashed_key);
+    if (handle_pin->handle == nullptr) {
+        Unpin(handle_pin->pin_id);
+        return false;
+    }
     return true;
 }
 
@@ -269,6 +305,8 @@ HandleImpl* ClockCache::Lookup(const UniqueId64x2& hashed_key) {
 }
 
 bool ClockCache::Insert(const Handle& handle) {
+    PinGuard pin_guard(this);
+
     const size_t old_occupancy          = occupancy_.FetchAddAcqRel(1);
     const bool need_evict_for_occupancy = old_occupancy + 1 > occupancy_limit_;
 
@@ -293,6 +331,7 @@ bool ClockCache::Insert(const Handle& handle) {
 }
 
 bool ClockCache::Erase(const UniqueId64x2& hashed_key) {
+    PinGuard pin_guard(this);
     bool found = false;
     bool succ  = false;
     (void)FindSlot(

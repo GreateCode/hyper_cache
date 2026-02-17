@@ -27,38 +27,28 @@ ShardWrapper::~ShardWrapper() {
         if (!cc) {
             continue;
         }
-        assert(cc->RefCount() == 0);
+        assert(cc->PinCount() == 0);
         delete cc;
         replicas_[i].StoreRelease(nullptr);
     }
 }
 
-HandleImpl* ShardWrapper::Lookup(const UniqueId64x2& hashed_key) {
+bool ShardWrapper::Lookup(const UniqueId64x2& hashed_key, HandlePin* handle_pin) {
     ClockCache* current = AcquireCurrent();
     if (current) {
-        current->Pin();  // protect slow Lookup: replica may become retired before return
-        HandleImpl* handle = current->Lookup(hashed_key);
-        if (handle) {
-            return handle;  // Unpin in Release
-        }
-        current->Unpin();
+        return current->Lookup(hashed_key,
+                               handle_pin);  // protect slow Lookup: replica may become retired before return
     }
 
     if (!scaling_.LoadAcquire()) {
-        return nullptr;
+        return false;
     }
 
     ClockCache* retired = AcquireRetired();
     if (!retired) {
-        return nullptr;
+        return false;
     }
-    retired->Pin();
-    HandleImpl* handle = retired->Lookup(hashed_key);
-    if (!handle) {
-        retired->Unpin();
-        return nullptr;
-    }
-    return handle;  // Unpin in Release
+    return retired->Lookup(hashed_key, handle_pin);
 }
 
 bool ShardWrapper::Insert(const Handle& handle) {
@@ -66,14 +56,14 @@ bool ShardWrapper::Insert(const Handle& handle) {
     if (!current) {
         return false;
     }
-    current->Pin();
-    bool ok = current->Insert(handle);
-    current->Unpin();
-    return ok;
+    return current->Insert(handle);
 }
 
-bool ShardWrapper::Release(HandleImpl* handle) {
-    uint8_t id = handle->Id();
+bool ShardWrapper::Release(HandlePin* handle_pin) {
+    if (!handle_pin || !handle_pin->handle) {
+        return false;
+    }
+    uint8_t id = handle_pin->handle->Id();
     for (int i = 0; i < replicas_.size(); ++i) {
         if (!replicas_[i].LoadAcquire()) {
             continue;
@@ -83,8 +73,7 @@ bool ShardWrapper::Release(HandleImpl* handle) {
             continue;
         }
         if (id == replica->GetId()) {
-            replica->Release(handle);
-            replica->Unpin();  // paired with Pin in Lookup
+            replica->Release(handle_pin);
             return true;
         }
     }
@@ -95,9 +84,7 @@ bool ShardWrapper::Erase(const UniqueId64x2& hashed_key) {
     bool succ           = false;
     ClockCache* current = AcquireCurrent();
     if (current) {
-        current->Pin();
         succ = current->Erase(hashed_key);
-        current->Unpin();
         if (!scaling_.LoadAcquire()) {
             return succ;
         }
@@ -107,9 +94,7 @@ bool ShardWrapper::Erase(const UniqueId64x2& hashed_key) {
     if (!retired) {
         return succ;
     }
-    retired->Pin();
     succ &= retired->Erase(hashed_key);
-    retired->Unpin();
     return succ;
 }
 
