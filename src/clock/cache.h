@@ -1,5 +1,6 @@
 #pragma once
 
+#include <thread>
 #include <vector>
 
 #include "clock/handle.h"
@@ -43,9 +44,13 @@ private:
     UniqueId64x2 HashKey(const void* key, int32_t key_size);
     ShardWrapper* GetShard(const UniqueId64x2& hashed_key);
 
+    void SmoothScale();
+
 private:
     std::vector<std::unique_ptr<ShardWrapper>> shards_;
     CacheOptions options_;
+    AcqRelAtomic<bool> stop_scaling_{false};
+    std::thread scale_thread_;
 };
 
 }  // namespace hyper_cache::clock

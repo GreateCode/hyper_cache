@@ -1,5 +1,7 @@
 #include "clock/cache.h"
 
+#include <cstdint>
+#include <iostream>
 #include <memory>
 
 #include "clock/handle.h"
@@ -16,9 +18,16 @@ Cache::Cache(const CacheOptions& options) : options_(options) {
     for (int i = 0; i < options.shard_num; ++i) {
         shards_.emplace_back(std::make_unique<ShardWrapper>(shard_options));
     }
+
+    stop_scaling_.StoreRelease(false);
+    scale_thread_ = std::thread(&Cache::SmoothScale, this);
 }
 
-Cache::~Cache() { shards_.clear(); }
+Cache::~Cache() {
+    stop_scaling_.StoreRelease(true);
+    scale_thread_.join();
+    shards_.clear();
+}
 
 bool Cache::Lookup(void* key, int32_t key_size, HandlePin* handle_pin) {
     const UniqueId64x2 hashed_key = HashKey(key, key_size);
@@ -85,6 +94,28 @@ ShardWrapper* Cache::GetShard(const UniqueId64x2& hashed_key) {
 
 UniqueId64x2 Cache::HashKey(const void* key, int32_t key_size) {
     return options_.hash_key_fn(key, key_size, options_.hash_seed);
+}
+
+void Cache::SmoothScale() {
+    while (!stop_scaling_.LoadAcquire()) {
+        int32_t idx = 0;
+        for (auto& shard : shards_) {
+            if (stop_scaling_.LoadAcquire()) {
+                return;
+            }
+            const int32_t old_length                               = shard->GetLength();
+            const std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
+            const bool succ                                        = shard->SmoothScale();
+            const std::chrono::duration<double> duration           = std::chrono::steady_clock::now() - start_time;
+            if (succ) {
+                std::cout << "shard " << idx << " smooth scale time: " << duration.count()
+                          << " seconds, old length: " << old_length << ", new length: " << shard->GetLength()
+                          << std::endl;
+            }
+            ++idx;
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    }
 }
 
 }  // namespace hyper_cache::clock

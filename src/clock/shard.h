@@ -38,17 +38,16 @@ public:
 
     size_t GetOccupancyLimit() const;
 
+    bool SmoothScale();
+
 private:
     ClockCache* AcquireCurrent() const;
     ClockCache* AcquireRetired() const;
-
-    void SmoothScale();
 
 private:
     std::array<AcqRelAtomic<ClockCache*>, 2> replicas_;
     AcqRelAtomic<int32_t> current_idx_{0};
     AcqRelAtomic<bool> scaling_{false};
-    std::thread scale_thread_;
 };
 
 }  // namespace hyper_cache::clock

@@ -158,15 +158,16 @@ static void BenchmarkClockCacheReadWrite(benchmark::State& state) {
     for (auto s : state) {
         int64_t key = rnd() * max_num;
 
-        auto handle = clock_cache.Lookup(reinterpret_cast<void*>(&key), sizeof(key));
-        if (handle) {
+        hyper_cache::clock::HandlePin handle_pin;
+        if (clock_cache.Lookup(&key, sizeof(key), &handle_pin)) {
             if (enable_stat) {
-                const bool succ = *static_cast<int64_t*>(handle->value) == key;
+                const bool succ = *static_cast<int64_t*>(handle_pin.handle->value) == key;
                 clock_stat.get_status[succ].FetchAddRelaxed(1);
             }
-            clock_cache.Release(handle);
+            clock_cache.Release(&handle_pin);
+            handle_pin.handle = nullptr;  // avoid stale pointer after Release (replica may be deleted by Scale later)
         }
-        benchmark::DoNotOptimize(handle);
+        benchmark::DoNotOptimize(handle_pin.handle);
 
         if (hyper_cache::FastRandomDouble() < miss_ratio) {
             hyper_cache::clock::Handle handle;
@@ -197,7 +198,7 @@ int main(int argc, char* argv[]) {
     const int64_t max_num    = 10000 * 10000;
     const int64_t miss_ratio = 20;
     const int thread_num     = 16;
-    const int32_t min_time   = 10;
+    const int32_t min_time   = 40;
     benchmark::RegisterBenchmark("LRUCacheReadWrite", BenchmarkLRUCacheReadWrite)
         ->Args({max_num, miss_ratio})
         ->ArgNames({"range", "miss_ratio"})

@@ -28,6 +28,7 @@ struct ClockCacheOptions {
     // use for accelerate the hit count decrease speed, when the hit count is too
     // large, the decrease speed will be too slow
     int32_t hit_decr_delta_min = 1;
+    bool enable_scale          = true;
 };
 
 class ClockCache {
